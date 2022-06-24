@@ -82,9 +82,6 @@
              :maxLength 10
              :regex     "\\d{4}-\\d{2}-\\d{2}"}))
 
-(defmethod generate 'zen/map
-  [])
-
 (defmethod generate 'zen/vector
   [context schema]
   (let [min-items (get schema :minItems 0)
@@ -93,3 +90,22 @@
      (repeatedly #(generate context (:every schema)))
      (take (generate context {:type 'zen/integer :min min-items :max max-items}))
      (vec))))
+
+(defmethod generate 'zen/set
+  [context {:keys     [every minItems maxItems
+                           superset-of subset-of]
+            :or        {every {:type 'zen/integer}
+                        minItems  0
+                        maxItems 5}}]
+  (if subset-of
+    (->> (generate context {:type 'zen/integer :min 0 :max (count subset-of)})
+         (range)
+         (map (fn [_] (rand-nth (vec subset-of))))
+         (set))
+    (let [seq- (->>
+                (repeatedly #(generate context every))
+                (take (generate context {:type 'zen/integer :min minItems :max maxItems})))]
+      (set
+       (if superset-of
+         (concat superset-of seq-)
+         seq-)))))

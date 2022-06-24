@@ -96,6 +96,23 @@
       (with-context-generate context
         {:type zen/datetime})))
 
+  (testing "set"
+    (testing "base"
+      (with-context-generate context
+        {:type zen/set :every {:type zen/integer}}))
+    (testing "minItems"
+      (with-context-generate context
+        {:type zen/set :minItems 15 :maxItems 20}))
+    (testing "maxItems"
+      (with-context-generate context
+        {:type zen/set :maxItems 20}))
+    (testing "subset-of"
+      (with-context-generate context
+        {:type zen/set :subset-of #{1 2 3 4 5} }))
+    (testing "superset-of"
+      (with-context-generate context
+        {:type zen/set :superset-of #{1 2 3}}))
+
   (testing "vector"
     (testing "base"
       (with-context-generate context
@@ -105,4 +122,4 @@
         {:type zen/vector :every {:type zen/integer} :minItems 1}))
     (testing "maxItems"
       (with-context-generate context
-        {:type zen/vector :every {:type zen/integer} :maxItems 2}))))
+        {:type zen/vector :every {:type zen/integer} :maxItems 2})))))
