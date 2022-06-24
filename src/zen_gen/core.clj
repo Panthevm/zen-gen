@@ -144,7 +144,28 @@
   [context schema]
   (generate context {:type (rand-nth (keys (methods generate)))}))
 
-
+(defmethod generate 'zen/list
+  [context {:keys     [every minItems maxItems]
+            :or        {every {:type 'zen/integer}
+                        minItems  1
+                        maxItems 10}
+            :as schema}]
+  (let [nth- (:nth schema)
+        nth-max (when nth- (->> nth- keys (apply max)))
+        maxItems- (if nth-
+                    (if (> maxItems nth-max)
+                      maxItems
+                      (dec nth-max))
+                    maxItems)
+        seq- (->> (repeatedly #(generate context every))
+                  (take (generate context {:type 'zen/integer :min minItems :max maxItems-})))]
+    (def a maxItems-)
+    (if nth-
+      (->> nth-
+           (mapv (fn [[i schema-]] [i (generate context schema-)]))
+           (reduce (fn [acc [i val]] (assoc acc i val)) (vec seq-))
+           (apply list ))
+      (apply list seq-))))
 
 
 
@@ -164,4 +185,5 @@
    100
    (repeatedly
     #(generate {} {:type 'zen/string :regex "([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)))?)?)?"})))
+
   )

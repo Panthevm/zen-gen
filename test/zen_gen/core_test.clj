@@ -166,4 +166,22 @@
         {:type zen/vector :every {:type zen/integer} :minItems 1}))
     (testing "maxItems"
       (with-context-generate context
-        {:type zen/vector :every {:type zen/integer} :maxItems 2}))))
+        {:type zen/vector :every {:type zen/integer} :maxItems 2})))
+
+  (testing "list"
+    (testing "base"
+      (with-context-generate context
+        {:type zen/list :every {:type zen/integer}}))
+    (testing "minItems"
+      (with-context-generate context
+        {:type zen/list :minItems 15 :maxItems 20}))
+    (testing "maxItems"
+      (with-context-generate context
+        {:type zen/list :maxItems 20}))
+    (testing "sublist-of"
+      (with-context-generate context
+        {:type zen/list :nth {0 {:type zen/symbol}
+                              4 {:type zen/integer}
+                              5 {:type zen/list
+                                 :every {:type zen/integer}}} })))
+  )
