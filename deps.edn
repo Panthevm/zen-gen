@@ -1,0 +1,28 @@
+{:aliases 
+ {:matcho
+  {:extra-paths ["test"]
+   :extra-deps  {healthsamurai/matcho {:mvn/version "RELEASE"}}}
+
+  :generex
+  {:extra-paths ["src" "test"]
+   :extra-deps  {com.github.mifmif/generex {:mvn/version "RELEASE"}}}
+
+  :test-check
+  {:extra-paths ["src" "test"]
+   :extra-deps  {org.clojure/test.check {:mvn/version "RELEASE"}}}
+
+  :kaocha
+  {:extra-paths ["test"]
+   :extra-deps  {lambdaisland/kaocha {:mvn/version "RELEASE"}}}
+
+  :zen
+  {:extra-paths ["test" "src"]
+   :extra-deps  {zen-lang/zen {:git/url "https://github.com/zen-lang/zen.git"
+                               :sha     "616ec584b6ce1d7096aa8c9a9efa8ea7dbb0f52d"}}}
+
+  :cider
+  {:extra-paths ["test" "src"]
+   :extra-deps  {cider/cider-nrepl {:mvn/version "RELEASE"}}
+   :main-opts   ["-m"           "nrepl.cmdline"
+                 "--middleware" "[cider.nrepl/cider-middleware]"]}
+  }}
