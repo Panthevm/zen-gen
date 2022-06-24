@@ -7,7 +7,8 @@
 
 (defmulti generate
   (fn [context schema]
-    (:type schema)))
+    (:type schema))
+  :default 'zen/schema)
 
 (defmethod generate 'zen/boolean
   [context schema]
@@ -81,6 +82,35 @@
              :minLength 10
              :maxLength 10
              :regex     "\\d{4}-\\d{2}-\\d{2}"}))
+
+(defmethod generate 'zen/map
+  [context schema]
+  (->>
+   schema
+   (:keys)
+   (reduce
+    (fn [acc [k v]]
+      (if (or (contains? (:required schema) k)
+              (generate context {:type 'zen/boolean}))
+        (assoc acc k (generate context v))
+        acc))
+    (into {} (generate context (dissoc schema :type))))))
+
+(defmethod generate 'zen/schema
+  [context schema]
+  (cond
+    (:const schema)
+    (-> schema :const :value)
+    (:enum schema)
+    (->>
+     (rand-nth (:enum schema))
+     (:value))
+    (:confirms schema)
+    (->> (:confirms schema)
+         (mapv (comp
+                (partial generate context)
+                (partial zen.core/get-symbol context)))
+         (apply merge))))
 
 (defmethod generate 'zen/vector
   [context schema]

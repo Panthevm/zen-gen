@@ -1,10 +1,10 @@
 (ns zen-gen.core-test
   (:require 
-    [zen-gen.core]
-    [zen.validation]
-    [zen.core]
-    [clojure.test :refer [deftest testing]]
-    [clojure.pprint]))
+   [zen-gen.core]
+   [zen.validation]
+   [zen.core]
+   [clojure.test :refer [deftest testing]]
+   [clojure.pprint]))
 
 (defn pretty-print
   [schema data]
@@ -14,17 +14,22 @@
   data)
 
 (defmacro with-context-generate
-  [context schema]
-  `(->> (zen-gen.core/generate          ~context '~schema)
-        (pretty-print '~schema)
-        (zen.validation/validate-schema ~context '~schema)
-        (= (zen.validation/new-validation-acc))
-        (clojure.test/is)))
+  [context schema & [namespace-data]]
+  `(do
+     (zen.core/load-ns context '~namespace-data)
+     (let [data# (zen-gen.core/generate ~context '~schema)]
+       (->> (pretty-print '~schema data#)
+            (zen.validation/validate-schema ~context '~schema)
+            (:errors)
+            (empty?)
+            (clojure.test/is))
+       data#)))
 
 (deftest generate-test
 
   (def context
     (zen.core/new-context))
+
 
   (testing "boolean"
     (testing "base"
@@ -111,7 +116,41 @@
         {:type zen/set :subset-of #{1 2 3 4 5} }))
     (testing "superset-of"
       (with-context-generate context
-        {:type zen/set :superset-of #{1 2 3}}))
+        {:type zen/set :superset-of #{1 2 3}})))
+
+  (testing "map"
+    (testing "base"
+      (with-context-generate context
+        {:type zen/map})
+      (with-context-generate context
+        {:type zen/map
+         :keys {:boolean {:type zen/boolean}
+                :string  {:type zen/string}}}))
+    (testing "required"
+      (with-context-generate context
+        {:type     zen/map
+         :required #{:boolean :string}
+         :keys     {:boolean {:type zen/boolean}
+                    :string  {:type zen/string}
+                    :integer {:type zen/integer}}})))
+
+  (testing "schema"
+    (testing "const"
+      (with-context-generate context
+        {:const {:value "1"}}))
+    (testing "enum"
+      (with-context-generate context
+        {:enum [{:value "1"}
+                {:value "2"}]}))
+    (testing "confirms"
+      (with-context-generate context
+        {:confirms #{zen-gen.core-test/schema-1}}
+        {ns zen-gen.core-test
+         schema-1 {:type     zen/map
+                   :confirms #{schema-2}
+                   :keys     {:boolean {:type zen/boolean}}}
+         schema-2 {:type     zen/map
+                   :keys     {:string {:type zen/string}}}})))
 
   (testing "vector"
     (testing "base"
@@ -122,4 +161,4 @@
         {:type zen/vector :every {:type zen/integer} :minItems 1}))
     (testing "maxItems"
       (with-context-generate context
-        {:type zen/vector :every {:type zen/integer} :maxItems 2})))))
+        {:type zen/vector :every {:type zen/integer} :maxItems 2}))))
