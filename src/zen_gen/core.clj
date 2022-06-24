@@ -140,6 +140,9 @@
          (concat superset-of seq-)
          seq-)))))
 
+(defmethod generate 'zen/any
+  [context schema]
+  (generate context {:type (rand-nth (keys (methods generate)))}))
 
 
 

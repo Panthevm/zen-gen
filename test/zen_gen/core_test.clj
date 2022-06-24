@@ -52,6 +52,11 @@
       (with-context-generate context
         {:type zen/integer :min 0 :max 1})))
 
+  (testing "any"
+    (testing "base"
+      (with-context-generate context
+        {:type zen/any})))
+
   (testing "number"
     (testing "base"
       (with-context-generate context
