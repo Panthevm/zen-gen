@@ -107,15 +107,15 @@
      (:value))
     (:confirms schema)
     (->> (:confirms schema)
-         (mapv (comp
-                (partial generate context)
-                (partial zen.core/get-symbol context)))
-         (apply merge))))
+         ;; (remove #(= % 'hl7-fhir-r4-core.Extension/schema #_(:zen/name schema)))
+         (map #(zen.core/get-symbol context %))
+         (apply merge)
+         (generate context))))
 
 (defmethod generate 'zen/vector
   [context schema]
-  (let [min-items (get schema :minItems 0)
-        max-items (get schema :maxItems 8)]
+  (let [min-items (or (:minItems schema) 0)
+        max-items (or (:maxItems schema) 8)]
     (->>
      (repeatedly #(generate context (:every schema)))
      (take (generate context {:type 'zen/integer :min min-items :max max-items}))
@@ -139,3 +139,20 @@
        (if superset-of
          (concat superset-of seq-)
          seq-)))))
+
+
+
+
+
+
+
+(comment
+  (def zen-context
+    (zen.core/new-context {:paths [(str (System/getProperty "user.dir") "/zrc")]}))
+
+  (zen.core/read-ns zen-context 'my-zen-ns)
+
+  (:zen/name (zen.core/get-symbol zen-context 'hl7-fhir-r4-core.Element/schema))
+  (generate zen-context
+            {:confirms #{'hl7-fhir-r4-core.Attachment/schema}} ) 
+  )
