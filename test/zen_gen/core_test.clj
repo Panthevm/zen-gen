@@ -193,4 +193,20 @@
                               4 {:type zen/integer}
                               5 {:type zen/list
                                  :every {:type zen/integer}}} })))
-  )
+
+  (testing "case"
+    (with-context-generate context
+      {:type zen/case
+       :case [{:when {:type zen/string}
+               :then {:type zen/string}}
+              {:when {:type zen/vector}
+               :then {:type zen/vector
+                      :nth {5 {:type zen/list}}}}]})
+    (with-context-generate context
+      {:type zen/set
+       :every {:type zen/case
+               :case [{:when {:type zen/string}
+                       :then {:type zen/string}}
+                      {:when {:type zen/vector}
+                       :then {:type zen/vector
+                              :nth {5 {:type zen/list}}}}]}})))

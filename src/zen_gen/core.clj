@@ -1,6 +1,7 @@
 (ns zen-gen.core
   (:require
-   [zen.core])
+   [zen.core]
+   clojure.core.reducers)
   (:import
    [java.util.concurrent ThreadLocalRandom]
    [com.mifmif.common.regex Generex]))
@@ -189,9 +190,19 @@
                        (map second))
                   seq-))))
 
+(defmethod generate 'zen/case
+  [context {case :case}]
+  (some->> (map :then case)
+           (filter (comp not :fail))
+           seq
+           rand-nth
+           (generate context)))
+
 (comment
   (def zen-context
-    (zen.core/new-context {:paths [(str (System/getProperty "user.dir") "/zrc")]}))
+    (zen.core/new-context {:paths [(str #_(System/getProperty "user.dir")
+                                       (str "/home/veschin/work/sansara/box/zrc" #_ #_"fhir.edn" "aidbox.edn")
+                                       #_ "/zrc")]}))
 
   (zen.core/read-ns zen-context 'hl7-fhir-r4-core)
 
@@ -201,4 +212,30 @@
 
   (generate zen-context {:confirms #{'hl7-fhir-r4-core.Patient/schema}}) 
   (generate zen-context {:confirms #{'hl7-fhir-r4-core.Attachment/schema}}) 
+  (zen.core/read-ns zen-context 'aidbox)
+
+  (-> @zen-context :ns #_(get 'zen) keys)
+
+  (:zen/name (zen.core/get-symbol zen-context 'hl7-fhir-r4-core.Element/schema))
+  (generate zen-context
+            {:confirms #{'hl7-fhir-r4-core.Attachment/schema}} ) 
+
+ (generate zen-context {:confirms #{'aidbox/config}})
+
+  ;; ?
+  (take
+   100
+   (repeatedly
+    #(generate {} {:type 'zen/string :regex "([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)))?)?)?"})))
+
+  (def aidbox (clojure.edn/read-string (slurp "/home/veschin/work/sansara/box/zrc/aidbox.edn")))
+
+  (->> (slurp "/home/veschin/work/sansara/box/zrc/aidbox.edn")
+       (re-seq #"(zen\/\w+)")
+       (map first)
+       frequencies
+       (sort-by second >))
+
+  ;;
+
   )
