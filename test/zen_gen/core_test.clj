@@ -131,10 +131,10 @@
         {:type zen/map
          :keys {:boolean {:type zen/boolean}
                 :string  {:type zen/string}}}))
-    (testing "required"
+    (testing "require"
       (with-context-generate context
         {:type     zen/map
-         :required #{:boolean :string}
+         :require #{:boolean :string}
          :keys     {:boolean {:type zen/boolean}
                     :string  {:type zen/string}
                     :integer {:type zen/integer}}})))

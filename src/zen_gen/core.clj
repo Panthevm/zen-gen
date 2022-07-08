@@ -99,8 +99,11 @@
    (:keys)
    (reduce
     (fn [acc [k v]]
-      (if (or (contains? (:required schema) k)
-              (generate context {:type 'zen/boolean}))
+      (if (and (or (contains? (:require schema) k)
+                   (generate context {:type 'zen/boolean}))
+               (not=  \_ (first (name k)))
+               (not=  :extension k)
+               (not=  :modifierExtension k))
         (assoc acc k (generate context v))
         acc))
     (into {} (generate context (dissoc schema :type))))))
@@ -115,11 +118,20 @@
      (rand-nth (:enum schema))
      (:value))
     (:confirms schema)
-    (->> (:confirms schema)
-         ;; (remove #(= % 'hl7-fhir-r4-core.Extension/schema #_(:zen/name schema)))
-         (map #(zen.core/get-symbol context %))
-         (apply merge)
-         (generate context))))
+    (cond->
+        (->> (:confirms schema)
+             (remove #(= % 'hl7-fhir-r4-core.Extension/schema #_(:zen/name schema)))
+             (map #(zen.core/get-symbol context %))
+             (apply merge)
+             (generate context))
+      (:zen.fhir/reference schema)
+      (assoc :type
+             (some->> (:zen.fhir/reference schema)
+                      (:refers)
+                      (map #(zen.core/get-symbol context %))
+                      (keep :zen.fhir/type)
+                      (seq)
+                      (rand-nth))))))
 
 (defmethod generate 'zen/vector
   [context {:keys [minItems maxItems every]
@@ -181,16 +193,12 @@
   (def zen-context
     (zen.core/new-context {:paths [(str (System/getProperty "user.dir") "/zrc")]}))
 
-  (zen.core/read-ns zen-context 'my-zen-ns)
+  (zen.core/read-ns zen-context 'hl7-fhir-r4-core)
 
-  (:zen/name (zen.core/get-symbol zen-context 'hl7-fhir-r4-core.Element/schema))
-  (generate zen-context
-            {:confirms #{'hl7-fhir-r4-core.Attachment/schema}} ) 
+  (keys (:symbols @zen-context))
+  (zen.core/get-symbol zen-context 'hl7-fhir-r4-core.value-set.device-type/valuse-set)
 
-  ;; ?
-  (take
-   100
-   (repeatedly
-    #(generate {} {:type 'zen/string :regex "([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)))?)?)?"})))
 
+  (generate zen-context {:confirms #{'hl7-fhir-r4-core.Patient/schema}}) 
+  (generate zen-context {:confirms #{'hl7-fhir-r4-core.Attachment/schema}}) 
   )
