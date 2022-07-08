@@ -10,6 +10,15 @@
     (:type schema))
   :default 'zen/schema)
 
+(defn- nth-check [context {nth :nth min-items :maxItems :or {min-items 0}}]
+  (when nth
+    {:nth-minItems (if-let [nth-max (->> nth keys (apply max))]
+                     (if (> nth-max min-items)
+                       (inc nth-max)
+                       min-items)
+                     min-items)
+     :nth-map (into {} (map (fn [[i schema]] {i (generate context schema)}) nth))}))
+
 (defmethod generate 'zen/boolean
   [context schema]
   (.nextBoolean (ThreadLocalRandom/current)))
@@ -113,13 +122,19 @@
          (generate context))))
 
 (defmethod generate 'zen/vector
-  [context schema]
-  (let [min-items (or (:minItems schema) 0)
-        max-items (or (:maxItems schema) 8)]
-    (->>
-     (repeatedly #(generate context (:every schema)))
-     (take (generate context {:type 'zen/integer :min min-items :max max-items}))
-     (vec))))
+  [context {:keys [minItems maxItems every]
+            :or {minItems 0 maxItems 10 every {:type 'zen/any}}
+            :as schema}]
+  (let [{:keys [nth-minItems nth-map]
+         :or   {nth-minItems minItems}} (nth-check context schema)
+        seq- (->> (repeatedly #(generate context every))
+                  (take (generate context {:type 'zen/integer :min nth-minItems :max maxItems})))]
+    (vec (if nth-map
+           (->> nth-map
+                (merge (zipmap (range) seq-))
+                (sort-by first)
+                (mapv second))
+           seq-))))
 
 (defmethod generate 'zen/set
   [context {:keys     [every minItems maxItems
@@ -144,31 +159,23 @@
   [context schema]
   (generate context {:type (rand-nth (keys (methods generate)))}))
 
+
 (defmethod generate 'zen/list
   [context {:keys     [every minItems maxItems]
-            :or        {every {:type 'zen/integer}
-                        minItems  1
-                        maxItems 10}
+            :or       {every {:type 'zen/integer}
+                       minItems  1
+                       maxItems 10}
             :as schema}]
-  (let [nth- (:nth schema)
-        nth-max (when nth- (->> nth- keys (apply max)))
-        maxItems- (if nth-
-                    (if (> maxItems nth-max)
-                      maxItems
-                      (dec nth-max))
-                    maxItems)
+  (let [{:keys [nth-minItems nth-map]
+         :or   {nth-minItems minItems}} (nth-check context schema)
         seq- (->> (repeatedly #(generate context every))
-                  (take (generate context {:type 'zen/integer :min minItems :max maxItems-})))]
-    (def a maxItems-)
-    (if nth-
-      (->> nth-
-           (mapv (fn [[i schema-]] [i (generate context schema-)]))
-           (reduce (fn [acc [i val]] (assoc acc i val)) (vec seq-))
-           (apply list ))
-      (apply list seq-))))
-
-
-
+                  (take (generate context {:type 'zen/integer :min nth-minItems :max maxItems})))]
+    (apply list (if nth-map
+                  (->> nth-map
+                       (merge (zipmap (range) seq-))
+                       (sort-by first)
+                       (map second))
+                  seq-))))
 
 (comment
   (def zen-context
