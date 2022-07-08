@@ -1,10 +1,32 @@
 (ns zen-gen.core
   (:require
    [zen.core]
-   clojure.core.reducers)
+   [cheshire.core])
   (:import
    [java.util.concurrent ThreadLocalRandom]
    [com.mifmif.common.regex Generex]))
+
+
+(defn import-terminology
+  [context]
+  (some->> (:paths @context)
+           (mapcat (comp file-seq clojure.java.io/file))
+           (filter (memfn isFile))
+           (filter #(clojure.string/ends-with? % (str "hl7-fhir-r4-core-terminology-bundle.ndjson.gz")))
+           (first)
+           java.io.FileInputStream.
+           java.util.zip.GZIPInputStream.
+           slurp
+           clojure.string/split-lines
+           (map #(cheshire.core/parse-string % keyword))
+           (filter #(= "Concept" (:resourceType %)))
+           (reduce (fn [acc c]
+                     (reduce
+                      (fn [acc vs]
+                        (update-in acc [vs (:system c)] conj (dissoc c :valueset)))
+                      acc
+                      (:valueset c)))
+                   {})))
 
 (defmulti generate
   (fn [context schema]
@@ -95,23 +117,53 @@
 
 (defmethod generate 'zen/map
   [context schema]
-  (->>
-   schema
-   (:keys)
-   (reduce
-    (fn [acc [k v]]
-      (if (and (or (contains? (:require schema) k)
-                   (generate context {:type 'zen/boolean}))
-               (not=  \_ (first (name k)))
-               (not=  :extension k)
-               (not=  :modifierExtension k))
-        (assoc acc k (generate context v))
-        acc))
-    (into {} (generate context (dissoc schema :type))))))
+  (let [exclusive-key (->> (:exclusive-keys schema)
+                           (mapv #(if (set? %)
+                                    (rand-nth (vec %))
+                                    %))
+                           (seq)
+                           (vec))
+        exlusive-fn
+        (fn [keys-data]
+          (if (seq exclusive-key)
+            (select-keys keys-data exclusive-key)
+            keys-data))]
+    (->>
+     schema
+     (:keys)
+     (exlusive-fn)
+     (reduce
+      (fn [acc [k v]]
+        (if (and (or (contains? (:require schema) k)
+                     (generate context {:type 'zen/boolean}))
+                 (not=  \_ (first (name k)))
+                 (not=  :extension k)
+                 (not=  :modifierExtension k))
+          (assoc acc k (generate context v))
+          acc))
+      (into {} (generate context (dissoc schema :type)))))))
 
 (defmethod generate 'zen/schema
   [context schema]
   (cond
+    (:zen.fhir/value-set schema)
+    (let [vs (zen.core/get-symbol context (-> schema :zen.fhir/value-set :symbol))
+          uri (:uri vs)
+          cs  (-> vs :fhir/code-systems vec rand-nth :fhir/url)
+          data (rand-nth (get-in (::terminology @context) [uri cs]))
+          ftype (->> schema :confirms
+                     (vec)
+                     (map #(zen.core/get-symbol context %))
+                     (filter (comp #{"code" "Coding" "CodeableConcept"} :zen.fhir/type))
+                     (first)
+                     (:zen.fhir/type))]
+      (cond
+        (= "code" ftype)
+        (:code data)
+        (= "CodeableConcept" ftype)
+        {:coding [(select-keys data [:code :system :display])]}
+        (= "Coding" ftype)
+        (select-keys data [:code :system :display])))
     (:const schema)
     (-> schema :const :value)
     (:enum schema)
@@ -198,8 +250,17 @@
            rand-nth
            (generate context)))
 
+(defn generate-fhir
+  [context schema]
+  (swap! context assoc ::terminology (import-terminology context))
+  (generate context schema))
+
 (comment
+
   (def zen-context
+    (zen.core/new-context {:paths ["zrc"]}))
+  
+  #_(def zen-context
     (zen.core/new-context {:paths [(str #_(System/getProperty "user.dir")
                                        (str "/home/veschin/work/sansara/box/zrc" #_ #_"fhir.edn" "aidbox.edn")
                                        #_ "/zrc")]}))
@@ -210,7 +271,7 @@
   (zen.core/get-symbol zen-context 'hl7-fhir-r4-core.value-set.device-type/valuse-set)
 
 
-  (generate zen-context {:confirms #{'hl7-fhir-r4-core.Patient/schema}}) 
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.Patient/schema}}) 
   (generate zen-context {:confirms #{'hl7-fhir-r4-core.Attachment/schema}}) 
   (zen.core/read-ns zen-context 'aidbox)
 
@@ -238,4 +299,41 @@
 
   ;;
 
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(comment
+  (do 
+    (def zen-context
+      (zen.core/new-context {:paths ["zrc"]}))
+    (zen.core/read-ns zen-context 'hl7-fhir-r4-core))
+
+  ;; ?
+  (get-in (::terminology @zen-context) ["http://hl7.org/fhir/ValueSet/currencies"
+                                        "urn:iso:std:iso:4217"])
+
+
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.Patient/schema}}) 
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.Organization/schema}}) 
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.Observation/schema}}) 
+
+
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.ContactPoint/schema}}) 
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.Address/schema}}) 
+  (generate-fhir zen-context {:confirms #{'hl7-fhir-r4-core.Money/schema}}) 
   )

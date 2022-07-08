@@ -7,6 +7,10 @@
   {:extra-paths ["src" "test"]
    :extra-deps  {com.github.mifmif/generex {:mvn/version "RELEASE"}}}
 
+  :cheshire
+  {:extra-paths ["src" "test"]
+   :extra-deps  {cheshire/cheshire {:mvn/version "5.11.0"}}}
+
   :test-check
   {:extra-paths ["src" "test"]
    :extra-deps  {org.clojure/test.check {:mvn/version "RELEASE"}}}
